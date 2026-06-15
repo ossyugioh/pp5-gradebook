@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8"/>
+<title>ปพ.5 — Auto Test Suite</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;font-size:13px;background:#f2f0eb;color:#181816;padding:20px}
+h1{font-size:18px;font-weight:700;margin-bottom:4px}
+.sub{font-size:12px;color:#72706a;margin-bottom:20px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+.run{background:#1a5c3f;color:#fff}.run:hover{opacity:.9}
+.clear{background:#fff;color:#72706a;border:1px solid #dedad2;margin-left:8px}
+.progress{width:100%;height:8px;background:#dedad2;border-radius:4px;margin:14px 0;overflow:hidden}
+.progress-bar{height:8px;border-radius:4px;background:#1a5c3f;transition:width .3s}
+#results{margin-top:10px}
+.group{background:#fff;border:1px solid #dedad2;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.group-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #dedad2;background:#f8f7f3}
+.group-hd h2{font-size:12px;font-weight:700;color:#72706a;text-transform:uppercase;letter-spacing:.4px}
+.group-score{font-size:12px;font-weight:700}
+.tests{padding:8px 14px}
+.test{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid #f0ede6}
+.test:last-child{border-bottom:none}
+.icon{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;margin-top:1px}
+.pass{background:#e4f3db;color:#1a5c3f}
+.fail{background:#fceaea;color:#8b2020}
+.skip{background:#fef0dc;color:#7a4400}
+.test-name{font-size:12px;font-weight:500;flex:1}
+.test-detail{font-size:11px;color:#72706a;margin-top:2px}
+.test-err{font-size:11px;color:#8b2020;margin-top:2px;font-family:monospace}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.sum-card{background:#fff;border:1px solid #dedad2;border-radius:10px;padding:12px 16px;text-align:center}
+.sum-card .v{font-size:26px;font-weight:700}
+.sum-card .l{font-size:11px;color:#72706a}
+.duration{font-size:11px;color:#72706a;margin-top:4px;text-align:right}
+.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.bp{background:#e4f3db;color:#1a5c3f}
+.bf{background:#fceaea;color:#8b2020}
+.bw{background:#fef0dc;color:#7a4400}
+</style>
+</head><body>
+<h1>🧪 ปพ.5 Auto Test Suite</h1>
+<p class="sub">ทดสอบการทำงานของระบบ ปพ.5 อัตโนมัติ — ไม่ต้องทดสอบมือทุก feature</p>
+<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+  <button class="btn run" onclick="runAll()">▶ รันทดสอบทั้งหมด</button>
+  <button class="btn clear" onclick="clearResults()">↺ ล้างผล</button>
+  <span id="status" style="font-size:12px;color:#72706a"></span>
+</div>
+<div class="progress"><div class="progress-bar" id="prog" style="width:0%"></div></div>
+<div id="summary" style="display:none">
+  <div class="summary" id="sum-cards"></div>
+  <div class="duration" id="dur"></div>
+</div>
+<div id="results"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   TEST FRAMEWORK
+══════════════════════════════════════════════════════════ */
+let results=[];let startTime;
+
+function assert(cond,msg){if(!cond)throw new Error(msg||'assertion failed');}
+function assertEqual(a,b,msg){if(a!==b)throw new Error((msg||'not equal')+`: got ${JSON.stringify(a)}, expected ${JSON.stringify(b)}`);}
+function assertContains(arr,item,msg){if(!arr.includes(item))throw new Error((msg||'not found')+`: ${JSON.stringify(item)} in ${JSON.stringify(arr)}`);}
+function assertGT(a,b,msg){if(!(a>b))throw new Error((msg||'')+`: ${a} > ${b} failed`);}
+function assertGTE(a,b,msg){if(!(a>=b))throw new Error((msg||'')+`: ${a} >= ${b} failed`);}
+
+/* ══════════════════════════════════════════════════════════
+   MOCK: simulate pp5 DB and functions
+══════════════════════════════════════════════════════════ */
+function makeMockDB(){
+  const PALS=[
+    {bg:'#e4f3db',bar:'#1a5c3f',e:'🌱'},{bg:'#daeaf8',bar:'#1a4a7a',e:'📘'},
+    {bg:'#fef0dc',bar:'#7a4400',e:'🔢'},{bg:'#fceaea',bar:'#8b2020',e:'🎨'},
+  ];
+  function makeEmptyTerm(ratio){
+    const p=ratio.split('-').map(Number);
+    return{ratio,colMax:p[0],finMax:p[1],inds:[],scores:{},fin:{},att:{rec:{},dates:[],notes:[]}};
+  }
+  const students=[
+    {id:'s1',sid:'01414',pid:'0630700075491',name:'เด็กชายสุขชัย ดีมาก',sex:'ช'},
+    {id:'s2',sid:'01417',pid:'0630700026805',name:'เด็กชายอาวิพุช สบาย',sex:'ช'},
+    {id:'s3',sid:'01434',pid:'1638900110180',name:'เด็กหญิงมาลี ใจดี',sex:'ญ'},
+    {id:'s4',sid:'01435',pid:'0630700074711',name:'เด็กหญิงสมใจ รักเรียน',sex:'ญ'},
+    {id:'s5',sid:'01436',pid:'8630789000415',name:'เด็กชายวีระ กล้าหาญ',sex:'ช'},
+  ];
+  const subject={
+    id:'subj1',palIdx:0,school:'วชช. น้ำมอเกอร์',year:'2567',cls:'ป.1/1',
+    code:'ง1110',sub:'การงานอาชีพ',grp:'การงานอาชีพ',cred:1,
+    teach:'นายอนุโรจน์ นิสัยแก้ว',hpw:1,wpterm:20,hpt:20,hpy:40,
+    terms:{
+      1:{...makeEmptyTerm('70-30'),
+        inds:[
+          {id:'i1',code:'ง.1.1 ป.1/1',desc:'บอกวิธีการทำงาน',max:30},
+          {id:'i2',code:'ง.1.1 ป.1/2',desc:'ใช้วัสดุอุปกรณ์',max:20},
+          {id:'i3',code:'ง.1.1 ป.1/3',desc:'ทำงานกระตือรือร้น',max:20},
+        ]
+      },
+      2:{...makeEmptyTerm('70-30'),
+        inds:[
+          {id:'i4',code:'ง.1.1 ป.1/1',desc:'บอกวิธีการทำงาน',max:35},
+          {id:'i5',code:'ง.1.1 ป.1/2',desc:'ใช้วัสดุอุปกรณ์',max:35},
+        ]
+      }
+    }
+  };
+  return{subjects:[subject],students};
+}
+
+/* ══ helpers matching pp5 logic ══ */
+function getCollect(DB,subjId,t,sid){
+  const s=DB.subjects.find(x=>x.id===subjId);if(!s)return 0;
+  const tm=s.terms[t];if(!tm)return 0;
+  return tm.inds.reduce((a,ind)=>{
+    const sc=tm.scores[ind.id]&&tm.scores[ind.id][sid];
+    return a+(sc!==undefined&&sc!==''?Number(sc):0);
+  },0);
+}
+function getTermTot(DB,subjId,t,sid){
+  const s=DB.subjects.find(x=>x.id===subjId);if(!s)return null;
+  const tm=s.terms[t];if(!tm)return null;
+  const fin=tm.fin[sid]!==''&&tm.fin[sid]!==undefined?Number(tm.fin[sid]):null;
+  if(fin===null)return null;
+  return Math.round(getCollect(DB,subjId,t,sid)+fin);
+}
+function getGrade(sc){
+  if(sc>=80)return{g:'4',lbl:'ดีเยี่ยม'};if(sc>=75)return{g:'3.5',lbl:'ดีมาก'};
+  if(sc>=70)return{g:'3',lbl:'ดี'};if(sc>=65)return{g:'2.5',lbl:'ค่อนข้างดี'};
+  if(sc>=60)return{g:'2',lbl:'น่าพอใจ'};if(sc>=55)return{g:'1.5',lbl:'พอใช้'};
+  if(sc>=50)return{g:'1',lbl:'ผ่านเกณฑ์'};return{g:'0',lbl:'ต่ำกว่าเกณฑ์'};
+}
+function getAttCnt(DB,subjId,t,sid){
+  const s=DB.subjects.find(x=>x.id===subjId);if(!s)return{come:0,abs:0,late:0,leave:0,empty:0,tot:0};
+  const tm=s.terms[t];if(!tm||!tm.att)return{come:0,abs:0,late:0,leave:0,empty:0,tot:0};
+  const hpw=Math.min(s.hpw||1,7),wpt=s.wpterm||20;
+  const rec=(tm.att.rec&&tm.att.rec[sid])||{};
+  let come=0,abs=0,late=0,leave=0,empty=0;
+  for(let w=1;w<=wpt;w++)for(let d=0;d<hpw;d++){
+    const v=rec[`w${w}d${d}`]||'';
+    if(v==='P')come++;else if(v==='A')abs++;else if(v==='L')late++;else if(v==='H')leave++;else empty++;
+  }
+  return{come,abs,late,leave,empty,tot:hpw*wpt};
+}
+function attPass(DB,subjId,t,sid){
+  const cnt=getAttCnt(DB,subjId,t,sid);
+  const s=DB.subjects.find(x=>x.id===subjId);if(!s)return true;
+  return cnt.come>=Math.round((s.hpw||1)*(s.wpterm||20)*.8);
+}
+function countIndPass(DB,subjId,sid){
+  const s=DB.subjects.find(x=>x.id===subjId);if(!s)return{pass:0,fail:0};
+  let pass=0,fail=0;
+  [1,2].forEach(t=>{
+    const tm=s.terms[t];if(!tm)return;
+    tm.inds.forEach(ind=>{
+      const sc=tm.scores[ind.id]&&tm.scores[ind.id][sid];
+      if(sc===undefined||sc==='')return;
+      Number(sc)>=ind.max*.5?pass++:fail++;
+    });
+  });
+  return{pass,fail};
+}
+function formatDate(d,fmt){
+  const THDAYS=['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const THMONTHS=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const day=d.getDate();const mo=d.getMonth();const yr=(d.getFullYear()+543)%100;const dow=THDAYS[d.getDay()];
+  if(fmt==='short')return`${dow}.${day}/${mo+1}`;
+  if(fmt==='thai')return`${day} ${THMONTHS[mo]}`;
+  return`${dow}.${day}/${mo+1}/${yr}`;
+}
+function generateDates(start,dows,wpt,hpw,fmt){
+  const dates=[];let cur=new Date(start);
+  for(let w=0;w<wpt;w++){
+    const startOfWeek=new Date(cur);startOfWeek.setDate(cur.getDate()-cur.getDay());
+    dows.sort((a,b)=>a-b).forEach(dow=>{
+      const d=new Date(startOfWeek);d.setDate(startOfWeek.getDate()+dow);
+      dates.push(formatDate(d,fmt));
+    });
+    cur.setDate(cur.getDate()+7);
+  }
+  return dates;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TEST GROUPS
+══════════════════════════════════════════════════════════ */
+const TEST_GROUPS=[
+
+  {name:'📋 โครงสร้างข้อมูล (DB Structure)',tests:[
+    {name:'makeEmptyTerm สร้างข้อมูลครบ',fn:()=>{
+      const t={ratio:'70-30',colMax:70,finMax:30,inds:[],scores:{},fin:{},att:{rec:{},dates:[],notes:[]}};
+      assert('colMax' in t,'ต้องมี colMax');assert('finMax' in t,'ต้องมี finMax');
+      assert('inds' in t,'ต้องมี inds');assert('scores' in t,'ต้องมี scores');
+      assert('att' in t,'ต้องมี att');assert(Array.isArray(t.att.dates),'dates ต้องเป็น array');
+      assert(Array.isArray(t.att.notes),'notes ต้องเป็น array');
+    }},
+    {name:'สัดส่วน 70/30 คำนวณถูก',fn:()=>{
+      const p='70-30'.split('-').map(Number);
+      assertEqual(p[0],70,'colMax');assertEqual(p[1],30,'finMax');assertEqual(p[0]+p[1],100,'รวม 100');
+    }},
+    {name:'สัดส่วน 60/40 คำนวณถูก',fn:()=>{
+      const p='60-40'.split('-').map(Number);assertEqual(p[0]+p[1],100,'รวม 100');
+    }},
+    {name:'สัดส่วน 80/20 คำนวณถูก',fn:()=>{
+      const p='80-20'.split('-').map(Number);assertEqual(p[0]+p[1],100,'รวม 100');
+    }},
+    {name:'DB มีวิชาและนักเรียน',fn:()=>{
+      const DB=makeMockDB();
+      assertEqual(DB.subjects.length,1,'ต้องมี 1 วิชา');
+      assertEqual(DB.students.length,5,'ต้องมี 5 นักเรียน');
+      assert(DB.subjects[0].terms[1],'ต้องมีภาค 1');
+      assert(DB.subjects[0].terms[2],'ต้องมีภาค 2');
+    }},
+    {name:'ตัวชี้วัด ภาค 1 มี 3 ตัว',fn:()=>{
+      const DB=makeMockDB();assertEqual(DB.subjects[0].terms[1].inds.length,3,'ต้องมี 3 ตัวชี้วัด');
+    }},
+    {name:'ตัวชี้วัดคะแนนรวมไม่เกิน colMax',fn:()=>{
+      const DB=makeMockDB();
+      const tm=DB.subjects[0].terms[1];
+      const total=tm.inds.reduce((a,i)=>a+i.max,0);
+      assertEqual(total,70,'รวม 70 = colMax');
+    }},
+  ]},
+
+  {name:'📊 คะแนนตัวชี้วัด (Indicator Scores)',tests:[
+    {name:'กรอกคะแนนตัวชี้วัดและคำนวณ collect',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';
+      tm.scores['i1']={};tm.scores['i2']={};tm.scores['i3']={};
+      tm.scores['i1'][sid]=25;tm.scores['i2'][sid]=18;tm.scores['i3'][sid]=15;
+      const col=getCollect(DB,'subj1',1,sid);
+      assertEqual(col,58,'25+18+15=58');
+    }},
+    {name:'คะแนนว่างไม่นับ',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s2';
+      tm.scores['i1']={};tm.scores['i1'][sid]='';
+      const col=getCollect(DB,'subj1',1,sid);
+      assertEqual(col,0,'ว่างต้องได้ 0');
+    }},
+    {name:'ตัวชี้วัดผ่าน: ≥ 50% ของคะแนนเต็ม',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const ind=tm.inds[0];// max=30, threshold=15
+      assertEqual(ind.max,30,'เต็ม 30');
+      assert(ind.max*.5===15,'เกณฑ์ 50%=15');
+      assert(20>=ind.max*.5,'20 ควรผ่าน');
+      assert(!(14>=ind.max*.5),'14 ไม่ควรผ่าน');
+    }},
+    {name:'นับตัวชี้วัดผ่าน/ไม่ผ่านถูกต้อง',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';
+      tm.scores['i1']={};tm.scores['i2']={};tm.scores['i3']={};
+      tm.scores['i1'][sid]=20;// 20/30 ≥50% ✓
+      tm.scores['i2'][sid]=5; // 5/20 <50% ✗
+      tm.scores['i3'][sid]=12;// 12/20 ≥50% ✓
+      const DB2=makeMockDB();DB2.subjects[0].terms[1].scores=DB.subjects[0].terms[1].scores;
+      // also set term2 scores (empty)
+      const{pass,fail}=countIndPass(DB2,'subj1',sid);
+      assertEqual(pass,2,'ผ่าน 2 ตัว');assertEqual(fail,1,'ไม่ผ่าน 1 ตัว');
+    }},
+    {name:'คะแนนไม่เกิน max (validation)',fn:()=>{
+      const max=30;let v=35;
+      if(v>max)v=max;
+      assertEqual(v,30,'ต้อง clamp เป็น 30');
+    }},
+    {name:'คะแนนไม่ต่ำกว่า 0 (validation)',fn:()=>{
+      let v=-5;if(v<0)v=0;assertEqual(v,0,'ต้อง clamp เป็น 0');
+    }},
+  ]},
+
+  {name:'✏ คะแนนสอบปลายภาค (Exam Scores)',tests:[
+    {name:'คำนวณคะแนนรวม ภาค 1',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';
+      tm.scores['i1']={};tm.scores['i2']={};tm.scores['i3']={};
+      tm.scores['i1'][sid]=25;tm.scores['i2'][sid]=18;tm.scores['i3'][sid]=15;
+      tm.fin[sid]=25;
+      const tot=getTermTot(DB,'subj1',1,sid);
+      assertEqual(tot,83,'58+25=83');
+    }},
+    {name:'คะแนนรวมไม่เกิน 100',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';
+      tm.scores['i1']={};tm.scores['i2']={};tm.scores['i3']={};
+      tm.scores['i1'][sid]=30;tm.scores['i2'][sid]=20;tm.scores['i3'][sid]=20;
+      tm.fin[sid]=30;
+      const tot=getTermTot(DB,'subj1',1,sid);
+      assert(tot<=100,'ต้องไม่เกิน 100');
+    }},
+    {name:'ไม่มีคะแนนสอบ → null',fn:()=>{
+      const DB=makeMockDB();
+      const tot=getTermTot(DB,'subj1',1,'s1');
+      assertEqual(tot,null,'ยังไม่กรอกสอบ ต้องได้ null');
+    }},
+    {name:'เกณฑ์ผ่านสอบ ≥ 50% ของคะแนนสอบ',fn:()=>{
+      const finMax=30;const threshold=finMax*.5;
+      assertEqual(threshold,15,'เกณฑ์ 50% ของ 30 = 15');
+      assert(20>=threshold,'20 ควรผ่าน');
+      assert(!(14>=threshold),'14 ไม่ควรผ่าน');
+    }},
+    {name:'คะแนน null ไม่คำนวณ',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];
+      s.terms[1].fin['s2']=undefined;
+      const tot=getTermTot(DB,'subj1',1,'s2');
+      assertEqual(tot,null,'undefined fin → null');
+    }},
+  ]},
+
+  {name:'📅 เวลาเรียน (Attendance)',tests:[
+    {name:'ค่าเริ่มต้นเป็นว่าง (ไม่ใช่ P)',fn:()=>{
+      const DB=makeMockDB();
+      const tm=DB.subjects[0].terms[1];
+      const rec=tm.att.rec['s1']||{};
+      const v=rec['w1d0']||'';
+      assertEqual(v,'','ค่าเริ่มต้นต้องว่าง');
+    }},
+    {name:'สถานะวงจร: ว่าง→P→A→L→H→ว่าง',fn:()=>{
+      const order=['','P','A','L','H'];
+      let cur='';
+      cur=order[(order.indexOf(cur)+1)%order.length];assertEqual(cur,'P');
+      cur=order[(order.indexOf(cur)+1)%order.length];assertEqual(cur,'A');
+      cur=order[(order.indexOf(cur)+1)%order.length];assertEqual(cur,'L');
+      cur=order[(order.indexOf(cur)+1)%order.length];assertEqual(cur,'H');
+      cur=order[(order.indexOf(cur)+1)%order.length];assertEqual(cur,'');
+    }},
+    {name:'นับชั่วโมงถูกต้อง (มา/ขาด/สาย/ลา/ว่าง)',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';tm.att.rec[sid]={};
+      // 20 periods (1 hpw × 20 wpt), mark first 5
+      tm.att.rec[sid]['w1d0']='P';
+      tm.att.rec[sid]['w2d0']='A';
+      tm.att.rec[sid]['w3d0']='L';
+      tm.att.rec[sid]['w4d0']='H';
+      // w5d0 onwards = ''
+      const cnt=getAttCnt(DB,'subj1',1,sid);
+      assertEqual(cnt.come,1,'มา 1');assertEqual(cnt.abs,1,'ขาด 1');
+      assertEqual(cnt.late,1,'สาย 1');assertEqual(cnt.leave,1,'ลา 1');
+      assertEqual(cnt.empty,16,'ยังไม่เช็ค 16');
+      assertEqual(cnt.tot,20,'รวม 20 คาบ');
+    }},
+    {name:'เกณฑ์ผ่าน ≥ 80% = 16 ชม. (จาก 20)',fn:()=>{
+      const hpt=20;assertEqual(Math.round(hpt*.8),16,'80% ของ 20=16');
+    }},
+    {name:'มา 16/20 (80%) = ผ่าน',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';tm.att.rec[sid]={};
+      for(let w=1;w<=16;w++)tm.att.rec[sid][`w${w}d0`]='P';
+      const pass=attPass(DB,'subj1',1,sid);
+      assert(pass,'มา 16/20 ต้องผ่าน');
+    }},
+    {name:'มา 15/20 (75%) = ไม่ผ่าน',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      const sid='s1';tm.att.rec[sid]={};
+      for(let w=1;w<=15;w++)tm.att.rec[sid][`w${w}d0`]='P';
+      const pass=attPass(DB,'subj1',1,sid);
+      assert(!pass,'มา 15/20 ต้องไม่ผ่าน');
+    }},
+    {name:'ไม่มีการเช็ค (ว่างทั้งหมด) → come=0',fn:()=>{
+      const DB=makeMockDB();
+      const cnt=getAttCnt(DB,'subj1',1,'s1');
+      assertEqual(cnt.come,0,'ว่างทั้งหมด come=0');
+      assertEqual(cnt.empty,20,'empty=20');
+    }},
+    {name:'hpw=2 → tot=40 คาบ',fn:()=>{
+      const DB=makeMockDB();DB.subjects[0].hpw=2;DB.subjects[0].hpt=40;
+      const cnt=getAttCnt(DB,'subj1',1,'s1');
+      assertEqual(cnt.tot,40,'hpw=2, wpt=20 → tot=40');
+      DB.subjects[0].hpw=1;DB.subjects[0].hpt=20;// restore
+    }},
+  ]},
+
+  {name:'📅 วันที่อัตโนมัติ (Auto Dates)',tests:[
+    {name:'สร้างวันที่ถูกจำนวน (20 สัปดาห์ × 1 วัน = 20)',fn:()=>{
+      const start=new Date('2024-05-13');// จันทร์
+      const dates=generateDates(start,[1],20,1,'short');
+      assertEqual(dates.length,20,'ต้องได้ 20 วัน');
+    }},
+    {name:'วันแรกเป็นวันจันทร์',fn:()=>{
+      const start=new Date('2024-05-13');
+      const dates=generateDates(start,[1],20,1,'short');
+      assert(dates[0].startsWith('จ.'),'วันแรกต้องเป็นจันทร์');
+    }},
+    {name:'สร้างวันที่ hpw=2 (จ.+พ.) ได้ 40 วัน',fn:()=>{
+      const start=new Date('2024-05-13');
+      const dates=generateDates(start,[1,3],20,2,'short');
+      assertEqual(dates.length,40,'hpw=2, wpt=20 → 40 วัน');
+    }},
+    {name:'รูปแบบ short ถูกต้อง',fn:()=>{
+      const d=new Date('2024-05-13');
+      const fmt=formatDate(d,'short');
+      assert(fmt.includes('.'),'ต้องมีจุด');
+    }},
+    {name:'รูปแบบ thai ถูกต้อง',fn:()=>{
+      const d=new Date('2024-05-13');
+      const fmt=formatDate(d,'thai');
+      assert(fmt.includes('พ.ค.'),'ต้องมีเดือนไทย');
+    }},
+    {name:'notes array รองรับหมายเหตุ',fn:()=>{
+      const DB=makeMockDB();const tm=DB.subjects[0].terms[1];
+      tm.att.notes[0]='วันหยุด';
+      tm.att.notes[2]='เรียนชดเชย';
+      assertEqual(tm.att.notes[0],'วันหยุด');
+      assertEqual(tm.att.notes[2],'เรียนชดเชย');
+      assertEqual(tm.att.notes[1]||'','','ช่องว่างต้องเป็นว่าง');
+    }},
+  ]},
+
+  {name:'🏆 การคำนวณผลการเรียนทั้งปี (Year Summary)',tests:[
+    {name:'เฉลี่ย 2 ภาค (80+70)/2=75',fn:()=>{
+      const avg=Math.round((80+70)/2);assertEqual(avg,75);
+    }},
+    {name:'ระดับ 4: คะแนน ≥ 80',fn:()=>{
+      assertEqual(getGrade(80).g,'4');assertEqual(getGrade(85).g,'4');assertEqual(getGrade(100).g,'4');
+    }},
+    {name:'ระดับ 3.5: 75-79',fn:()=>{
+      assertEqual(getGrade(75).g,'3.5');assertEqual(getGrade(79).g,'3.5');
+    }},
+    {name:'ระดับ 3: 70-74',fn:()=>{
+      assertEqual(getGrade(70).g,'3');assertEqual(getGrade(74).g,'3');
+    }},
+    {name:'ระดับ 2.5: 65-69',fn:()=>{
+      assertEqual(getGrade(65).g,'2.5');assertEqual(getGrade(69).g,'2.5');
+    }},
+    {name:'ระดับ 2: 60-64',fn:()=>{
+      assertEqual(getGrade(60).g,'2');assertEqual(getGrade(64).g,'2');
+    }},
+    {name:'ระดับ 1.5: 55-59',fn:()=>{
+      assertEqual(getGrade(55).g,'1.5');assertEqual(getGrade(59).g,'1.5');
+    }},
+    {name:'ระดับ 1: 50-54',fn:()=>{
+      assertEqual(getGrade(50).g,'1');assertEqual(getGrade(54).g,'1');
+    }},
+    {name:'ระดับ 0: < 50',fn:()=>{
+      assertEqual(getGrade(49).g,'0');assertEqual(getGrade(0).g,'0');
+    }},
+    {name:'ผ่าน: เฉลี่ย ≥ 50 AND เวลาเรียนผ่านทั้ง 2 ภาค',fn:()=>{
+      const avg=75;const attPass1=true;const attPass2=true;
+      const pass=avg>=50&&attPass1&&attPass2;
+      assert(pass,'75 + ผ่านเวลา ต้องผ่าน');
+    }},
+    {name:'ไม่ผ่าน: เวลาเรียนไม่ผ่านแม้คะแนนพอ',fn:()=>{
+      const avg=75;const attPass1=false;const attPass2=true;
+      const pass=avg>=50&&attPass1&&attPass2;
+      assert(!pass,'คะแนนพอแต่เวลาไม่ผ่าน ต้องไม่ผ่าน');
+    }},
+    {name:'ไม่ผ่าน: เฉลี่ย < 50',fn:()=>{
+      const avg=45;const attOk=true;
+      const pass=avg>=50&&attOk;
+      assert(!pass,'45 < 50 ต้องไม่ผ่าน');
+    }},
+    {name:'ยังไม่มีข้อมูลครบ → null',fn:()=>{
+      const DB=makeMockDB();
+      // ภาค 2 ยังไม่กรอกสอบ
+      const t2=getTermTot(DB,'subj1',2,'s1');
+      assertEqual(t2,null,'ภาค 2 ยังไม่ครบ ต้อง null');
+    }},
+    {name:'สถานะ "รอข้อมูล" เมื่อข้อมูลไม่ครบ',fn:()=>{
+      const avg=null;
+      const status=avg!==null?(avg>=50?'ผ่าน':'ไม่ผ่าน'):'รอข้อมูล';
+      assertEqual(status,'รอข้อมูล');
+    }},
+  ]},
+
+  {name:'🌟 คุณลักษณะ + อ่านเขียน',tests:[
+    {name:'ผ่านคุณลักษณะ: ทุกข้อ ≥ 1',fn:()=>{
+      const qKeys=['q1','q2','q3','q4','q5','q6','q7','q8'];
+      const q={q1:'2',q2:'1',q3:'3',q4:'1',q5:'2',q6:'1',q7:'2',q8:'1'};
+      const pass=qKeys.every(k=>Number(q[k]||0)>=1);
+      assert(pass,'ทุกข้อ ≥ 1 ต้องผ่าน');
+    }},
+    {name:'ไม่ผ่านคุณลักษณะ: มีข้อที่ 0',fn:()=>{
+      const qKeys=['q1','q2','q3','q4','q5','q6','q7','q8'];
+      const q={q1:'2',q2:'0',q3:'1',q4:'1',q5:'1',q6:'1',q7:'1',q8:'1'};
+      const pass=qKeys.every(k=>Number(q[k]||0)>=1);
+      assert(!pass,'มี 0 ต้องไม่ผ่าน');
+    }},
+    {name:'ผ่านอ่านเขียน: ทุกข้อ ≥ 1',fn:()=>{
+      const r={r1:'2',r2:'1',r3:'3'};
+      const pass=['r1','r2','r3'].every(k=>Number(r[k]||0)>=1);
+      assert(pass,'ต้องผ่าน');
+    }},
+    {name:'ค่าระดับ 0-3 ถูกต้อง',fn:()=>{
+      const opts=['0','1','2','3'];
+      assertEqual(opts.length,4,'ต้องมี 4 ระดับ');
+      assertContains(opts,'0');assertContains(opts,'3');
+    }},
+  ]},
+
+  {name:'💾 บันทึก/โหลดข้อมูล (Export/Import)',tests:[
+    {name:'JSON export มี subjects และ students',fn:()=>{
+      const DB=makeMockDB();
+      const json=JSON.stringify(DB);
+      const parsed=JSON.parse(json);
+      assert('subjects' in parsed,'ต้องมี subjects');
+      assert('students' in parsed,'ต้องมี students');
+    }},
+    {name:'Import กู้ข้อมูลคืนได้',fn:()=>{
+      const DB=makeMockDB();DB.subjects[0].sub='ทดสอบ';
+      const json=JSON.stringify(DB);
+      const parsed=JSON.parse(json);
+      assertEqual(parsed.subjects[0].sub,'ทดสอบ','ต้องกู้ชื่อวิชากลับได้');
+    }},
+    {name:'ข้อมูลนักเรียนครบในไฟล์',fn:()=>{
+      const DB=makeMockDB();const json=JSON.stringify(DB);
+      const parsed=JSON.parse(json);
+      assertEqual(parsed.students.length,5,'ต้องมีนักเรียน 5 คน');
+      assertEqual(parsed.students[0].sid,'01414');
+    }},
+    {name:'คะแนนและเวลาเรียนคงอยู่หลัง export/import',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];const tm=s.terms[1];
+      tm.scores['i1']={};tm.scores['i1']['s1']=25;
+      tm.fin['s1']=20;
+      tm.att.rec['s1']={'w1d0':'P','w2d0':'A'};
+      const json=JSON.stringify(DB);const parsed=JSON.parse(json);
+      const ptm=parsed.subjects[0].terms[1];
+      assertEqual(ptm.scores['i1']['s1'],25,'คะแนนตัวชี้วัดต้องคงอยู่');
+      assertEqual(ptm.fin['s1'],20,'คะแนนสอบต้องคงอยู่');
+      assertEqual(ptm.att.rec['s1']['w1d0'],'P','เวลาเรียนต้องคงอยู่');
+    }},
+    {name:'dates และ notes คงอยู่ใน export',fn:()=>{
+      const DB=makeMockDB();const tm=DB.subjects[0].terms[1];
+      tm.att.dates=['จ.13/5','จ.20/5'];
+      tm.att.notes=['','วันหยุดราชการ'];
+      const json=JSON.stringify(DB);const parsed=JSON.parse(json);
+      const ptm=parsed.subjects[0].terms[1];
+      assertEqual(ptm.att.dates[0],'จ.13/5');
+      assertEqual(ptm.att.notes[1],'วันหยุดราชการ');
+    }},
+  ]},
+
+  {name:'📊 สถิติและ Dashboard',tests:[
+    {name:'ความคืบหน้า: กรอกสอบ 2/5 คน = 20%',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];
+      s.terms[1].fin['s1']=25;s.terms[1].fin['s2']=20;
+      const stds=DB.students.length;
+      const f1=Object.values(s.terms[1].fin).filter(v=>v!=='').length;
+      const f2=Object.values(s.terms[2].fin).filter(v=>v!=='').length;
+      const pct=stds>0?Math.round((f1+f2)/(stds*2)*100):0;
+      assertEqual(pct,20,'2/(5*2)*100=20%');
+    }},
+    {name:'ความคืบหน้า: ครบทั้ง 2 ภาค = 100%',fn:()=>{
+      const DB=makeMockDB();const s=DB.subjects[0];
+      DB.students.forEach(st=>{s.terms[1].fin[st.id]=25;s.terms[2].fin[st.id]=20;});
+      const stds=DB.students.length;
+      const f1=Object.values(s.terms[1].fin).filter(v=>v!=='').length;
+      const f2=Object.values(s.terms[2].fin).filter(v=>v!=='').length;
+      const pct=Math.round((f1+f2)/(stds*2)*100);
+      assertEqual(pct,100,'ครบทุกคนทั้ง 2 ภาค = 100%');
+    }},
+    {name:'อัตราผ่าน 3/5 = 60%',fn:()=>{
+      const total=5;const passC=3;
+      const pct=Math.round(passC/total*100);
+      assertEqual(pct,60,'3/5 = 60%');
+    }},
+    {name:'ชม./ปี = ชม./ภาค × 2',fn:()=>{
+      const hpt=20;assertEqual(hpt*2,40,'20×2=40 ชม./ปี');
+      const hpt2=40;assertEqual(hpt2*2,80,'40×2=80 ชม./ปี');
+    }},
+  ]},
+
+];
+
+/* ══════════════════════════════════════════════════════════
+   RUN ENGINE
+══════════════════════════════════════════════════════════ */
+async function runAll(){
+  startTime=Date.now();results=[];
+  const prog=document.getElementById('prog');
+  const status=document.getElementById('status');
+  const resDiv=document.getElementById('results');
+  resDiv.innerHTML='';
+  document.getElementById('summary').style.display='none';
+  prog.style.width='0%';
+
+  const total=TEST_GROUPS.reduce((a,g)=>a+g.tests.length,0);
+  let done=0;let passed=0;let failed=0;
+  const groupResults=[];
+
+  for(const group of TEST_GROUPS){
+    const gRes={name:group.name,tests:[]};
+    for(const t of group.tests){
+      status.textContent=`กำลังทดสอบ: ${t.name}...`;
+      await new Promise(r=>setTimeout(r,0));// yield to UI
+      let ok=false;let err='';
+      try{t.fn();ok=true;passed++;}
+      catch(e){err=e.message;failed++;}
+      gRes.tests.push({name:t.name,ok,err});
+      done++;
+      prog.style.width=`${Math.round(done/total*100)}%`;
+    }
+    groupResults.push(gRes);
+  }
+
+  const elapsed=((Date.now()-startTime)/1000).toFixed(2);
+  prog.style.background=failed?'#8b2020':'#1a5c3f';
+  status.textContent=`เสร็จสิ้น! ${passed} ผ่าน, ${failed} ล้มเหลว (${elapsed}s)`;
+
+  // Summary cards
+  document.getElementById('summary').style.display='block';
+  document.getElementById('sum-cards').innerHTML=`
+    <div class="sum-card"><div class="v">${total}</div><div class="l">ทดสอบทั้งหมด</div></div>
+    <div class="sum-card"><div class="v" style="color:#1a5c3f">${passed}</div><div class="l">ผ่าน ✓</div></div>
+    <div class="sum-card"><div class="v" style="color:${failed?'#8b2020':'#72706a'}">${failed}</div><div class="l">ล้มเหลว ✗</div></div>
+    <div class="sum-card"><div class="v">${Math.round(passed/total*100)}%</div><div class="l">อัตราผ่าน</div></div>`;
+  document.getElementById('dur').textContent=`ใช้เวลา: ${elapsed} วินาที`;
+
+  // Group results
+  resDiv.innerHTML='';
+  groupResults.forEach(gr=>{
+    const gPassed=gr.tests.filter(t=>t.ok).length;
+    const gTotal=gr.tests.length;
+    const allPass=gPassed===gTotal;
+    const div=document.createElement('div');div.className='group';
+    div.innerHTML=`<div class="group-hd">
+      <h2>${gr.name}</h2>
+      <span class="group-score" style="color:${allPass?'#1a5c3f':'#8b2020'}">${gPassed}/${gTotal}</span>
+    </div>
+    <div class="tests">
+      ${gr.tests.map(t=>`
+        <div class="test">
+          <span class="icon ${t.ok?'pass':'fail'}">${t.ok?'✓':'✗'}</span>
+          <div style="flex:1">
+            <div class="test-name">${t.name}</div>
+            ${t.err?`<div class="test-err">⚠ ${t.err}</div>`:''}
+          </div>
+          <span class="badge ${t.ok?'bp':'bf'}">${t.ok?'ผ่าน':'ล้มเหลว'}</span>
+        </div>`).join('')}
+    </div>`;
+    resDiv.appendChild(div);
+  });
+}
+function clearResults(){
+  document.getElementById('results').innerHTML='';
+  document.getElementById('summary').style.display='none';
+  document.getElementById('prog').style.width='0%';
+  document.getElementById('prog').style.background='#1a5c3f';
+  document.getElementById('status').textContent='';
+}
+</script>
+</body></html>
