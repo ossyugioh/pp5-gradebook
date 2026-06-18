@@ -306,67 +306,31 @@ input.si:focus{outline:1px solid var(--bd);border-radius:2px}
 /* PRINT */
 #print-area{display:none}
 @media print{
-  @page{
-    size:A4 portrait;
-    margin:12mm 10mm 20mm 10mm;
-  }
-  /* CSS counter for page numbers */
-  #print-area{counter-reset:page-num}
-  .pp{counter-increment:page-num}
-  .pp::after{
-    content:"— หน้า " counter(page-num) " —";
-    display:block;
-    text-align:center;
-    font-size:7.5pt;
-    color:#888;
-    margin-top:6mm;
-    font-family:'Sarabun',sans-serif;
-  }
+  @page{size:A4 portrait;margin:14mm 12mm 12mm 12mm}
   body>*:not(#print-area){display:none!important}
   #print-area{display:block!important;background:#fff;font-family:'Sarabun',sans-serif;font-size:9pt}
-  .pp{
-    padding:0;
-    margin:0;
-    page-break-inside:auto;
-    page-break-after:always;
-    font-size:9pt;
-    line-height:1.5;
-    color:#000;
-    font-family:'Sarabun',sans-serif;
-  }
+  .pp{padding:0;margin:0;page-break-inside:auto;page-break-after:always;font-size:9pt;line-height:1.5;color:#000;font-family:'Sarabun',sans-serif;position:relative}
   .pp:last-child{page-break-after:avoid}
-  .pp-title{
-    font-size:13pt;font-weight:bold;text-align:center;
-    margin-bottom:3px;padding-bottom:3px;
-    border-bottom:2px solid #1a5c3f;
-  }
-  .pp-sub{font-size:9pt;text-align:center;color:#333;margin-bottom:6px}
-  .pp-info{
-    display:grid;grid-template-columns:1fr 1fr;gap:2px;
-    margin-bottom:6px;font-size:8pt;
-    border:1px solid #aaa;padding:5px 8px;border-radius:3px;
-    background:#f9f9f9;-webkit-print-color-adjust:exact;print-color-adjust:exact;
-  }
+  /* เลขหน้า มุมขวาบน — วงกลมเหมือน ปพ.5 จริง */
+  .pp-num{position:absolute;top:0;right:0;width:22px;height:22px;border:1.5px solid #000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8pt;font-weight:bold;font-family:'Sarabun',sans-serif;background:#fff;z-index:10;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pp-title{font-size:11.5pt;font-weight:bold;text-align:center;margin-bottom:3px;padding-bottom:2px;border-bottom:1.5px solid #000;padding-right:26px}
+  .pp-sub{font-size:8.5pt;text-align:center;color:#333;margin-bottom:4px}
+  .pp-info{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:4px;font-size:8pt;border:1px solid #888;padding:4px 8px;background:#f5f5f5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   table{border-collapse:collapse;width:100%;font-size:8pt}
   thead{display:table-header-group}
   tfoot{display:table-footer-group}
   tr{page-break-inside:avoid}
-  th,td{border:1px solid #777;padding:2px 4px;vertical-align:middle}
-  th{background:#ddeedd!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-weight:bold;text-align:center;font-size:7.5pt}
+  th,td{border:1px solid #666;padding:2px 4px;vertical-align:middle}
+  th{background:#e0e0e0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-weight:bold;text-align:center;font-size:7.5pt}
   td.print-name{text-align:left!important;max-width:110px;word-break:break-word}
-  .pp-footer{
-    margin-top:8mm;
-    display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;
-    font-size:8.5pt;
-    page-break-inside:avoid;
-  }
-  .pp-sign{text-align:center;border-top:1px solid #000;padding-top:4px;margin-top:16px}
+  .pp-footer{margin-top:6mm;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:8.5pt;page-break-inside:avoid}
+  .pp-sign{text-align:center;border-top:1px solid #000;padding-top:3px;margin-top:14px}
   .pp-cover{display:flex!important;page-break-after:always}
-  .pp-cover::after{content:none!important}
+  .pp-cover .pp-num{display:none}
   .pp-cover-border{display:block!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .att-print-wrap{overflow:visible}
   .att-print-wrap table{font-size:6.5pt}
-  .att-print-wrap th,.att-print-wrap td{padding:1px 2px;border:1px solid #999}
+  .att-print-wrap th,.att-print-wrap td{padding:1px 2px;border:1px solid #888}
   .bdg,.gr{background:none!important;border:1px solid #888;border-radius:2px;padding:0 2px;font-size:7pt}
 }
 </style>
@@ -1681,7 +1645,11 @@ function doPrint(){
   const sign1=sg.s1||s.teach||'';const sign1p=sg.s1p||'ครูผู้สอน';
   const sign2=sg.s2||'';const sign2p=sg.s2p||'หัวหน้ากลุ่มสาระ';
   const sign3=sg.s3||'';const sign3p=sg.s3p||'ผู้อำนวยการโรงเรียน';
-  const signBlock=`<div class="pp-footer">
+  // ── Page number counter (circle top-right like real ปพ.5) ──
+  let _pgNum=0;
+  function mkPP(inner){_pgNum++;return`<div class="pp"><div class="pp-num">${_pgNum}</div>${inner}</div>`;}
+
+    const signBlock=`<div class="pp-footer">
     <div><div class="pp-sign">ลงชื่อ.......................................<br><b>(${sign1})</b><br>${sign1p}</div></div>
     <div><div class="pp-sign">ลงชื่อ.......................................<br><b>(${sign2||'..................................'})</b><br>${sign2p}</div></div>
     <div><div class="pp-sign">ลงชื่อ.......................................<br><b>(${sign3||'..................................'})</b><br>${sign3p}</div></div>
@@ -1724,7 +1692,7 @@ function doPrint(){
       <td style="text-align:center;letter-spacing:.5px">${st.pid||'—'}</td>
     </tr>`;
   });
-  pa.innerHTML+=`<div class="pp">
+  pa.innerHTML+=mkPP(`
     <div class="pp-title">ทะเบียนรายชื่อนักเรียน</div>
     <div class="pp-sub">${s.sub} (${s.code}) | ชั้น ${s.cls} | ปีการศึกษา ${s.year}</div>
     ${info}
@@ -1741,7 +1709,7 @@ function doPrint(){
     <div style="margin-top:6px;font-size:7.5pt;color:#555">จำนวนนักเรียนทั้งหมด ${STDs().length} คน
     (ชาย ${STDs().filter(x=>x.sex==='ช').length} คน / หญิง ${STDs().filter(x=>x.sex==='ญ').length} คน)</div>
     ${signBlock}
-  </div>`;
+  `);
 
   const terms=pTerm===3?[1,2]:[pTerm];
   terms.forEach(t=>{
@@ -1782,14 +1750,14 @@ function doPrint(){
         const pass=come>=Math.round(tot*.8);
         rows+=`<tr><td style="text-align:center">${si+1}</td><td style="text-align:center;font-size:7pt">${st.sid||''}</td><td class="print-name">${st.name}</td>${cells}<td>${come}</td><td>${pct}%</td><td>${pass?'ผ่าน':'ไม่ผ่าน'}</td></tr>`;
       });
-      pa.innerHTML+=`<div class="pp"><div class="pp-title">บันทึกการเข้าเรียน — ${tLabel}</div>
+      pa.innerHTML+=mkPP(`<div class="pp-title">บันทึกการเข้าเรียน — ${tLabel}</div>
       <div class="pp-sub">${s.sub} (${s.code}) | ชั้น ${s.cls} | ปีการศึกษา ${s.year}</div>
       ${info}
       <div class="att-print-wrap">
       <table><thead>${theadDate}${theadNote}${theadPeriod}</thead><tbody>${rows}</tbody></table>
       </div>
       <p style="font-size:7pt;margin-top:3px;margin-bottom:0">✓=มา | ม=ขาด | ส=สาย | ล=ลา | (ว่าง)=ยังไม่บันทึก | เกณฑ์ผ่าน 80% (${Math.round((wpt*hpw-Object.values(holidays).filter(Boolean).length)*0.8)} ชม.)</p>
-      ${signBlock}</div>`;
+      ${signBlock}`);
     }
 
     // ── IND ──
@@ -1807,13 +1775,13 @@ function doPrint(){
             <td style="font-weight:bold;text-align:center">${tot!==''?tot:'—'}</td>
             <td>${tot!==''?(pass?'ผ่าน':'ไม่ผ่าน'):'—'}</td></tr>`;
         });
-        pa.innerHTML+=`<div class="pp"><div class="pp-title">ผลการประเมินตัวชี้วัด — ${tLabel}</div>
+        pa.innerHTML+=mkPP(`<div class="pp-title">ผลการประเมินตัวชี้วัด — ${tLabel}</div>
         <div class="pp-sub">${ind.code} — ${ind.desc} | คะแนนเต็ม ${ind.max}</div>
         ${info}<table><thead><tr>
           <th style="width:24px">ที่</th><th style="width:46px">รหัส</th>
           <th style="text-align:left">ชื่อ-สกุล</th>
           <th>คะแนน(/${ind.max})</th><th>ผล</th>
-        </tr></thead><tbody>${rows}</tbody></table>${signBlock}</div>`;
+        </tr></thead><tbody>${rows}</tbody></table>${signBlock}`);
       });
     }
 
@@ -1831,14 +1799,14 @@ function doPrint(){
           <td>${pct}${pct!=='—'?'%':''}</td>
           <td>${(v!==''&&v!==undefined)?(pass?'ผ่าน':'ไม่ผ่าน'):'—'}</td></tr>`;
       });
-      pa.innerHTML+=`<div class="pp"><div class="pp-title">คะแนนสอบปลายภาค — ${tLabel}</div>
+      pa.innerHTML+=mkPP(`<div class="pp-title">คะแนนสอบปลายภาค — ${tLabel}</div>
       <div class="pp-sub">${s.sub} | ชั้น ${s.cls} | คะแนนเต็ม ${tm.finMax}</div>
       ${info}<table><thead><tr>
         <th style="width:24px">ที่</th><th style="width:46px">รหัส</th>
         <th style="text-align:left">ชื่อ-สกุล</th>
         <th>คะแนน(/${tm.finMax})</th><th>%</th><th>สถานะ</th>
       </tr></thead>
-      <tbody>${rows}</tbody></table>${signBlock}</div>`;
+      <tbody>${rows}</tbody></table>${signBlock}`);
     }
 
     // ── QUAL per term ──
@@ -1858,7 +1826,7 @@ function doPrint(){
           ${keys.map(k=>`<td style="text-align:center">${q[k]||0}</td>`).join('')}
           <td style="font-weight:bold">${qLevelLabel(minV)}</td><td>${pass?'ผ่าน':'ไม่ผ่าน'}</td></tr>`;
       });
-      pa.innerHTML+=`<div class="pp"><div class="pp-title">การประเมินคุณลักษณะอันพึงประสงค์ 8 ประการ — ${tLabel}</div>
+      pa.innerHTML+=mkPP(`<div class="pp-title">การประเมินคุณลักษณะอันพึงประสงค์ 8 ประการ — ${tLabel}</div>
       <div class="pp-sub">${s.sub} | ชั้น ${s.cls} | ปีการศึกษา ${s.year}</div>
       ${info}<div style="font-size:7.5pt;margin-bottom:4px">3=ดีเยี่ยม | 2=ดี | 1=ผ่าน | 0=ไม่ผ่าน</div>
       <table><thead><tr>
@@ -1866,7 +1834,7 @@ function doPrint(){
         <th style="text-align:left">ชื่อ-สกุล</th>
         ${qLabels.map(l=>`<th style="font-size:6.5pt">${l}</th>`).join('')}<th>ระดับ</th><th>ผล</th>
       </tr></thead>
-      <tbody>${rows}</tbody></table>${signBlock}</div>`;
+      <tbody>${rows}</tbody></table>${signBlock}`);
     }
 
     // ── RW per term ──
@@ -1886,7 +1854,7 @@ function doPrint(){
           <td style="font-weight:bold">${rwLevelLabel(minV)}</td>
           <td>${pass?'ผ่าน':'ไม่ผ่าน'}</td></tr>`;
       });
-      pa.innerHTML+=`<div class="pp"><div class="pp-title">การประเมินการอ่าน คิดวิเคราะห์และเขียน — ${tLabel}</div>
+      pa.innerHTML+=mkPP(`<div class="pp-title">การประเมินการอ่าน คิดวิเคราะห์และเขียน — ${tLabel}</div>
       <div class="pp-sub">${s.sub} | ชั้น ${s.cls} | ปีการศึกษา ${s.year}</div>
       ${info}<div style="font-size:7.5pt;margin-bottom:4px">3=ดีเยี่ยม | 2=ดี | 1=ผ่าน | 0=ไม่ผ่าน</div>
       <table><thead><tr>
@@ -1894,7 +1862,7 @@ function doPrint(){
         <th style="text-align:left">ชื่อ-สกุล</th>
         <th>การอ่าน</th><th>คิดวิเคราะห์</th><th>การเขียน</th><th>ระดับ</th><th>ผล</th>
       </tr></thead>
-      <tbody>${rows}</tbody></table>${signBlock}</div>`;
+      <tbody>${rows}</tbody></table>${signBlock}`);
     }
   }); // end terms.forEach
 
@@ -1933,7 +1901,7 @@ function doPrint(){
       const cnt=gc2[gr.g]||0;
       return`<tr><td>${gr.g}</td><td>${gr.m}</td><td>${gr.r}</td><td>${cnt}</td><td>${tot2>0?Math.round(cnt/tot2*100):0}%</td></tr>`;
     }).join('');
-    pa.innerHTML+=`<div class="pp"><div class="pp-title">สรุปผลการเรียนรู้ทั้งปีการศึกษา</div>
+    pa.innerHTML+=mkPP(`<div class="pp-title">สรุปผลการเรียนรู้ทั้งปีการศึกษา</div>
     <div class="pp-sub">${s.sub} (${s.code}) | ชั้น ${s.cls} | ปีการศึกษา ${s.year}</div>
     ${info}
     <div style="margin:4px 0;padding:3px 6px;background:#f0f9f4;border:1px solid #aad4bc;border-radius:3px;font-size:7.5pt">
@@ -1958,9 +1926,110 @@ function doPrint(){
     <table style="width:55%;margin-top:3px;font-size:7.5pt"><thead><tr>
       <th>ระดับ</th><th>ความหมาย</th><th>ช่วงคะแนน</th><th>จำนวน(คน)</th><th>%</th>
     </tr></thead><tbody>${distRows}</tbody></table>
-    ${signBlock}</div>`;
+    ${signBlock}`);
   }
-  window.print();
+  // ── COURSE DESCRIPTION PAGE ──
+  {
+    const inds1=(s.terms[1]&&s.terms[1].inds)||[];
+    const inds2=(s.terms[2]&&s.terms[2].inds)||[];
+    const cred=s.cred||1;const hpy=s.hpy||80;
+    const r1=s.terms[1]?s.terms[1].ratio:"70-30";
+    const r2=s.terms[2]?s.terms[2].ratio:"70-30";
+    const mkIndRow=(ind,i)=>"<tr><td style=\"text-align:center\">"+(i+1)+"</td><td>"+ind.code+"</td><td style=\"text-align:left\">"+ind.desc+"</td><td style=\"text-align:center\">"+ind.max+"</td></tr>";
+    const indHead="<thead><tr><th style=\"width:20px\">ที่</th><th>รหัสตัวชี้วัด</th><th style=\"text-align:left\">รายละเอียด</th><th>คะแนนเต็ม</th></tr></thead>";
+    pa.innerHTML+=mkPP(
+      "<div class=\"pp-title\">คำอธิบายรายวิชา</div>"+
+      "<div class=\"pp-sub\">"+s.sub+" ("+s.code+") | ชั้น "+s.cls+" | ปีการศึกษา "+s.year+"</div>"+
+      info+
+      "<table style=\"margin-bottom:8px\"><thead><tr><th>รายละเอียด</th><th>ภาคเรียนที่ 1</th><th>ภาคเรียนที่ 2</th></tr></thead><tbody>"+
+      "<tr><td>สัดส่วนเก็บ/ปลาย</td><td style=\"text-align:center\">"+r1+"</td><td style=\"text-align:center\">"+r2+"</td></tr>"+
+      "<tr><td>จำนวนตัวชี้วัด</td><td style=\"text-align:center\">"+inds1.length+" ตัว</td><td style=\"text-align:center\">"+inds2.length+" ตัว</td></tr>"+
+      "<tr><td>เวลาเรียน/ภาค (ชม.)</td><td style=\"text-align:center\">"+(s.hpt||40)+"</td><td style=\"text-align:center\">"+(s.hpt||40)+"</td></tr>"+
+      "<tr><td>เวลาเรียนรวมทั้งปี (ชม.)</td><td colspan=\"2\" style=\"text-align:center\">"+hpy+"</td></tr>"+
+      "<tr><td>หน่วยกิต</td><td colspan=\"2\" style=\"text-align:center\">"+cred+"</td></tr>"+
+      "</tbody></table>"+
+      "<div style=\"font-weight:bold;margin-bottom:4px;font-size:9pt\">ตัวชี้วัดภาคเรียนที่ 1 ("+inds1.length+" ตัว)</div>"+
+      (inds1.length?"<table style=\"margin-bottom:8px\">"+indHead+"<tbody>"+inds1.map(mkIndRow).join("")+"</tbody></table>":"<p style=\"color:#888;font-size:8pt\">ยังไม่ได้กำหนดตัวชี้วัด</p>")+
+      "<div style=\"font-weight:bold;margin-bottom:4px;font-size:9pt\">ตัวชี้วัดภาคเรียนที่ 2 ("+inds2.length+" ตัว)</div>"+
+      (inds2.length?"<table>"+indHead+"<tbody>"+inds2.map(mkIndRow).join("")+"</tbody></table>":"<p style=\"color:#888;font-size:8pt\">ยังไม่ได้กำหนดตัวชี้วัด</p>")
+    );
+  }
+
+  // ── APPROVAL PAGE ──
+  {
+    const tot=STDs().length;
+    const GRADES=[{g:"4",lbl:"ดีเยี่ยม",min:80},{g:"3.5",lbl:"ดีมาก",min:75},{g:"3",lbl:"ดี",min:70},{g:"2.5",lbl:"ค่อนข้างดี",min:65},{g:"2",lbl:"น่าพอใจ",min:60},{g:"1.5",lbl:"พอใช้",min:55},{g:"1",lbl:"ผ่านเกณฑ์",min:50},{g:"0",lbl:"ต่ำกว่าเกณฑ์",min:0}];
+    const gc={};
+    STDs().forEach(function(st){
+      const t1=getTermTot(1,st),t2v=getTermTot(2,st);
+      const avg=(t1!==null&&t2v!==null)?Math.round((t1+t2v)/2):null;
+      if(avg!==null){const g=GRADES.find(function(gr){return avg>=gr.min;})||GRADES[GRADES.length-1];gc[g.g]=(gc[g.g]||0)+1;}
+    });
+    const qLevels={3:0,2:0,1:0,0:0};const rwLevels={3:0,2:0,1:0,0:0};
+    const qKeys=["q1","q2","q3","q4","q5","q6","q7","q8"];
+    const rwKeys=["r1","r2","r3"];
+    STDs().forEach(function(st){
+      let qMin=3,rwMin=3;
+      [1,2].forEach(function(t){
+        const tm=s.terms[t];if(!tm)return;
+        if(tm.qual&&tm.qual[st.id]){const q=tm.qual[st.id];qKeys.forEach(function(k){qMin=Math.min(qMin,Number(q[k]||0));});}
+        if(tm.rw&&tm.rw[st.id]){const r=tm.rw[st.id];rwKeys.forEach(function(k){rwMin=Math.min(rwMin,Number(r[k]||0));});}
+      });
+      qLevels[Math.max(0,Math.min(3,qMin))]++;
+      rwLevels[Math.max(0,Math.min(3,rwMin))]++;
+    });
+    const gradeRow=GRADES.map(function(g){return "<td style=\"text-align:center\">"+(gc[g.g]||0)+"</td>";}).join("");
+    const gradePct=GRADES.map(function(g){return "<td style=\"text-align:center\">"+(tot>0?((gc[g.g]||0)/tot*100).toFixed(2):"0.00")+"%</td>";}).join("");
+    const signLine="<div style=\"border-top:1px solid #000;margin-top:18px;padding-top:4px\">ลงชื่อ .....................................</div>";
+    const dateStr="<div style=\"margin-top:4px\">วันที่ ......./......./......</div>";
+    pa.innerHTML+=
+      "<div class=\"pp\">" +
+      "<div class=\"pp-num\">ก</div>" +
+      "<div style=\"text-align:center;font-size:13pt;font-weight:bold;margin-bottom:8px;border-bottom:2px solid #000;padding-bottom:4px;padding-right:26px\">สมุดบันทึกการพัฒนาคุณภาพผู้เรียน (ปพ.4)</div>" +
+      "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:8.5pt;margin-bottom:8px\">" +
+        "<div>โรงเรียน: <b>"+s.school+"</b></div><div>ปีการศึกษา: <b>"+s.year+"</b></div>" +
+        "<div>ชั้น: <b>"+s.cls+"</b></div><div>กลุ่มสาระ: <b>"+s.grp+"</b></div>" +
+        "<div>รหัสวิชา: <b>"+s.code+"</b></div><div>รายวิชา: <b>"+s.sub+"</b></div>" +
+        "<div>เวลาเรียน: <b>"+(s.hpy||80)+" ชม./ปี</b></div><div>หน่วยกิต: <b>"+s.cred+"</b></div>" +
+        "<div>ครูผู้สอน: <b>"+s.teach+"</b></div>" +
+      "</div>" +
+      "<div style=\"font-weight:bold;font-size:9pt;margin-bottom:4px;border-bottom:1px solid #888;padding-bottom:2px\">การอนุมัติผลการเรียน</div>" +
+      "<table style=\"margin-bottom:8px;font-size:8pt\"><thead>" +
+        "<tr><th rowspan=\"2\" style=\"width:60px\">จำนวนนักเรียนทั้งหมด</th><th colspan=\"8\">จำนวนนักเรียนที่ได้ระดับผลการเรียน</th><th rowspan=\"2\">ได้ 0</th><th rowspan=\"2\">หมายเหตุ</th></tr>" +
+        "<tr>"+GRADES.map(function(g){return "<th>"+g.g+"</th>";}).join("")+"</tr>" +
+      "</thead><tbody>" +
+        "<tr><td style=\"text-align:center;font-weight:bold\">"+tot+"</td>"+gradeRow+"<td style=\"text-align:center\">"+(gc["0"]||0)+"</td><td></td></tr>" +
+        "<tr><td style=\"text-align:center\">ร้อยละ</td>"+gradePct+"<td style=\"text-align:center\">"+(tot>0?((gc["0"]||0)/tot*100).toFixed(2):"0.00")+"%</td><td></td></tr>" +
+      "</tbody></table>" +
+      "<table style=\"margin-bottom:8px;font-size:8pt\"><thead><tr>" +
+        "<th rowspan=\"2\">สรุปผล</th>" +
+        "<th colspan=\"4\">สรุปผลการประเมินคุณลักษณะอันพึงประสงค์</th>" +
+        "<th colspan=\"4\">สรุปผลการประเมินการอ่าน คิดวิเคราะห์และเขียน</th></tr>" +
+        "<tr><th>3 (ดีเยี่ยม)</th><th>2 (ดี)</th><th>1 (ผ่าน)</th><th>0 (ไม่ผ่าน)</th>" +
+        "<th>3 (ดีเยี่ยม)</th><th>2 (ดี)</th><th>1 (ผ่าน)</th><th>0 (ไม่ผ่าน)</th></tr></thead><tbody>" +
+        "<tr><td>ผลการประเมิน (จำนวนนักเรียน)</td>" +
+        "<td style=\"text-align:center\">"+qLevels[3]+"</td><td style=\"text-align:center\">"+qLevels[2]+"</td>" +
+        "<td style=\"text-align:center\">"+qLevels[1]+"</td><td style=\"text-align:center\">"+qLevels[0]+"</td>" +
+        "<td style=\"text-align:center\">"+rwLevels[3]+"</td><td style=\"text-align:center\">"+rwLevels[2]+"</td>" +
+        "<td style=\"text-align:center\">"+rwLevels[1]+"</td><td style=\"text-align:center\">"+rwLevels[0]+"</td></tr>" +
+      "</tbody></table>" +
+      "<div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:10mm;font-size:8.5pt\">" +
+        "<div style=\"text-align:center\">"+signLine+"<div><b>("+(sign1||"...................................")+")</b></div><div>"+(sign1p||"ครูผู้สอน")+"</div>"+dateStr+"</div>" +
+        "<div style=\"text-align:center\">"+signLine+"<div><b>("+(sign2||"...................................")+")</b></div><div>"+(sign2p||"หัวหน้ากลุ่มสาระ")+"</div>"+dateStr+"</div>" +
+        "<div style=\"text-align:center\">"+signLine+"<div><b>("+(sign3||"...................................")+")</b></div><div>"+(sign3p||"ฝ่ายวัดผลการศึกษา")+"</div>"+dateStr+"</div>" +
+      "</div>" +
+      "<div style=\"margin-top:8mm;border-top:1px solid #888;padding-top:6px\">" +
+        "<div style=\"font-size:8.5pt;margin-bottom:6px\">เรียนเสนอเพื่อพิจารณา</div>" +
+        "<div style=\"text-align:center;font-size:8.5pt\"><div style=\"border-top:1px solid #000;margin:16px auto 2px;width:60%;padding-top:4px\">ลงชื่อ .....................................</div>" +
+        "<div>รองผู้อำนวยการโรงเรียนฝ่ายวิชาการ</div></div>" +
+        "<div style=\"margin-top:8px;font-size:9pt\"><span style=\"border:1.5px solid #000;padding:2px 8px;margin-right:12px\">☐ อนุมัติ</span><span style=\"border:1.5px solid #000;padding:2px 8px\">☐ ไม่อนุมัติ</span></div>" +
+        "<div style=\"text-align:center;font-size:8.5pt;margin-top:4px\"><div style=\"border-top:1px solid #000;margin:16px auto 2px;width:60%;padding-top:4px\">ลงชื่อ .....................................</div>" +
+        "<div>ผู้อำนวยการโรงเรียน</div></div>" +
+      "</div>" +
+      "</div>";
+  }
+
+    window.print();
 }
 
 /* ══ NAVIGATION ══ */
